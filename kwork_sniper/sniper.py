@@ -65,10 +65,19 @@ async def run() -> None:
     )
 
     storage = Storage(settings.db_path)
-    notifier = Notifier(settings.telegram_bot_token, settings.telegram_chat_id)
+    notifier = Notifier(
+        settings.telegram_bot_token,
+        settings.telegram_chat_id,
+        settings.telegram_proxy,
+    )
     categories = ", ".join(settings.categories)
 
-    log.info("Запуск. Категории: %s. Интервал: %s сек.", categories, settings.poll_interval)
+    log.info(
+        "Запуск. Категории: %s. Интервал: %s сек. Telegram: %s.",
+        categories,
+        settings.poll_interval,
+        "через прокси" if settings.telegram_proxy else "напрямую",
+    )
 
     first_run = storage.count() == 0
     healthy = True

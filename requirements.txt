@@ -1,3 +1,4 @@
 aiohttp>=3.9
 aiogram>=3.7
+aiohttp-socks>=0.8   # прокси для Telegram (http/socks5), нужен aiogram для proxy
 python-dotenv>=1.0

@@ -83,6 +83,7 @@ python -m kwork_sniper
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Токен бота от @BotFather | — (обязательно) |
 | `TELEGRAM_CHAT_ID` | Твой chat_id | — (обязательно) |
+| `TELEGRAM_PROXY` | Прокси к Telegram (см. ниже) | пусто = напрямую |
 | `KWORK_CATEGORIES` | Коды категорий через запятую | `41` |
 | `KEYWORDS` | Ключевые слова (хоть одно в названии/описании) | пусто = все |
 | `EXCLUDE_KEYWORDS` | Стоп-слова (отбросить, если найдено) | пусто |
@@ -95,6 +96,19 @@ python -m kwork_sniper
 
 Совет для снайпинга: поставь `MAX_OFFERS=3`, чтобы ловить проекты с низкой
 конкуренцией, и `KEYWORDS` под свои темы.
+
+### Прокси (если Telegram заблокирован, напр. в РФ)
+
+`api.telegram.org` в некоторых странах недоступен напрямую — тогда задай прокси
+**только для Telegram** (Kwork опрашивается напрямую):
+
+```
+TELEGRAM_PROXY=http://user:pass@host:port      # HTTP-прокси
+TELEGRAM_PROXY=socks5://user:pass@host:port    # SOCKS5-прокси
+```
+
+Если прокси выдан как `host:port:user:pass`, собери URL: `scheme://user:pass@host:port`.
+Не уверен в типе — попробуй сначала `http://`, затем `socks5://`. Пусто = напрямую.
 
 ---
 

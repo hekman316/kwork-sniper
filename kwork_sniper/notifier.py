@@ -6,6 +6,7 @@ import html
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 
 from .categories import category_name
@@ -50,9 +51,13 @@ def format_project(project: Project) -> str:
 
 
 class Notifier:
-    def __init__(self, token: str, chat_id: int):
+    def __init__(self, token: str, chat_id: int, proxy: str = ""):
+        # Прокси нужен, если api.telegram.org заблокирован (например, в РФ).
+        # Формат: http://user:pass@host:port или socks5://user:pass@host:port
+        session = AiohttpSession(proxy=proxy) if proxy else None
         self._bot = Bot(
             token=token,
+            session=session,
             default=DefaultBotProperties(
                 parse_mode=ParseMode.HTML,
                 link_preview_is_disabled=True,

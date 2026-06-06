@@ -26,6 +26,7 @@ def _int_env(name: str, default: int) -> int:
 class Settings:
     telegram_bot_token: str
     telegram_chat_id: int
+    telegram_proxy: str
     categories: list[str]
     keywords: list[str]
     exclude_keywords: list[str]
@@ -67,6 +68,7 @@ def load_settings() -> Settings:
     return Settings(
         telegram_bot_token=token,
         telegram_chat_id=chat_id,
+        telegram_proxy=os.getenv("TELEGRAM_PROXY", "").strip(),
         categories=categories,
         keywords=[k.lower() for k in _split_csv(os.getenv("KEYWORDS", ""))],
         exclude_keywords=[k.lower() for k in _split_csv(os.getenv("EXCLUDE_KEYWORDS", ""))],
