@@ -1,0 +1,23 @@
+# --- Секреты: НИКОГДА не коммитим ---
+.env
+.env.*
+!.env.example
+
+# --- База виденных проектов ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- IDE / ОС ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
