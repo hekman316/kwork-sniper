@@ -41,7 +41,13 @@ def format_project(project: Project) -> str:
         f"📂 {html.escape(category_name(project.category_id))}",
     ]
     if project.customer:
-        lines.append(f"👤 {html.escape(project.customer)}")
+        stats = []
+        if project.customer_hired_percent:
+            stats.append(f"нанимает {project.customer_hired_percent}%")
+        if project.customer_projects:
+            stats.append(f"проектов: {project.customer_projects}")
+        suffix = f"  ·  {'  ·  '.join(stats)}" if stats else ""
+        lines.append(f"👤 {html.escape(project.customer)}{suffix}")
     if description:
         lines.append("")
         lines.append(html.escape(description))

@@ -74,6 +74,8 @@ class Project:
     category_id: str
     customer: str
     customer_url: str
+    customer_hired_percent: int  # % найма заказчика (доля проектов, где он нанял)
+    customer_projects: int       # сколько проектов заказчик опубликовал всего
 
 
 class KworkAuthError(RuntimeError):
@@ -121,6 +123,7 @@ class KworkClient:
     def _parse(item: dict, category: str) -> Project:
         pid = _to_int(item.get("id"))
         user = item.get("user") or {}
+        udata = user.get("data") or {}
         return Project(
             id=pid,
             name=html.unescape(str(item.get("name", "")).strip()),
@@ -134,4 +137,6 @@ class KworkClient:
             category_id=str(item.get("category_id", category)),
             customer=str(user.get("username", "")),
             customer_url=str(item.get("wantUserGetProfileUrl", "")),
+            customer_hired_percent=_to_int(udata.get("wants_hired_percent")),
+            customer_projects=_to_int(udata.get("wants_count")),
         )

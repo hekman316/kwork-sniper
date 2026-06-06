@@ -31,6 +31,10 @@ def passes_filter(project: Project, settings: Settings) -> bool:
         budget = project.possible_price_limit or project.price_limit
         if budget and budget < settings.min_budget:
             return False
+    if settings.min_hired_percent and project.customer_hired_percent < settings.min_hired_percent:
+        return False
+    if settings.min_customer_projects and project.customer_projects < settings.min_customer_projects:
+        return False
     return True
 
 

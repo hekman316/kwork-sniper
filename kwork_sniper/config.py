@@ -32,6 +32,8 @@ class Settings:
     exclude_keywords: list[str]
     min_budget: int
     max_offers: int
+    min_hired_percent: int
+    min_customer_projects: int
     poll_interval: int
     max_pages: int
     db_path: str
@@ -74,6 +76,8 @@ def load_settings() -> Settings:
         exclude_keywords=[k.lower() for k in _split_csv(os.getenv("EXCLUDE_KEYWORDS", ""))],
         min_budget=_int_env("MIN_BUDGET", 0),
         max_offers=_int_env("MAX_OFFERS", 0),
+        min_hired_percent=_int_env("MIN_HIRED_PERCENT", 0),
+        min_customer_projects=_int_env("MIN_CUSTOMER_PROJECTS", 0),
         poll_interval=max(_int_env("POLL_INTERVAL", 75), 15),
         max_pages=_int_env("MAX_PAGES", 0),
         db_path=os.getenv("DB_PATH", "seen.db").strip() or "seen.db",
