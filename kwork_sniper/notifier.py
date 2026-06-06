@@ -10,7 +10,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 
 from .categories import category_name
-from .kwork import Project
+from .kwork import PROJECTS_URL, Project
 
 _DESCRIPTION_LIMIT = 500
 
@@ -29,28 +29,39 @@ def _fmt_price(project: Project) -> str:
     return "бюджет не указан"
 
 
+def _link(text: str, url: str) -> str:
+    return f'<a href="{html.escape(url, quote=True)}">{html.escape(text)}</a>'
+
+
 def format_project(project: Project) -> str:
     """Готовит HTML-сообщение по проекту."""
     description = project.description
     if len(description) > _DESCRIPTION_LIMIT:
         description = description[:_DESCRIPTION_LIMIT].rstrip() + "…"
 
+    category = _link(
+        category_name(project.category_id),
+        f"{PROJECTS_URL}?fc={project.category_id}",
+    )
+
     lines = [
         f"🎯 <b>{html.escape(project.name)}</b>",
+        "",
         f"💰 {_fmt_price(project)}   💬 откликов: {project.offers}   👁 {project.views}",
-        f"📂 {html.escape(category_name(project.category_id))}",
+        f"📂 {category}",
     ]
     if project.customer:
+        url = project.customer_url or f"https://kwork.ru/user/{project.customer}"
         stats = []
         if project.customer_hired_percent:
             stats.append(f"нанимает {project.customer_hired_percent}%")
         if project.customer_projects:
             stats.append(f"проектов: {project.customer_projects}")
         suffix = f"  ·  {'  ·  '.join(stats)}" if stats else ""
-        lines.append(f"👤 {html.escape(project.customer)}{suffix}")
+        lines.append(f"👤 {_link(project.customer, url)}{suffix}")
     if description:
         lines.append("")
-        lines.append(html.escape(description))
+        lines.append(f"<i>{html.escape(description)}</i>")
     lines.append("")
     lines.append(f"🔗 {project.url}")
     return "\n".join(lines)
