@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import html
 import re
 from dataclasses import dataclass
@@ -20,6 +21,12 @@ import aiohttp
 
 PROJECTS_URL = "https://kwork.ru/projects"
 PROJECT_URL_TEMPLATE = "https://kwork.ru/projects/{id}"
+
+# Временные ошибки сервера/сети — повторяем запрос, не валим цикл.
+_TRANSIENT_STATUSES = frozenset({429, 500, 502, 503, 504})
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = 2  # базовая пауза между попытками, сек (2, 4, ...)
+_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 # Полный набор браузерных заголовков. Ключевой — X-Requested-With.
 HEADERS = {
@@ -90,21 +97,39 @@ class KworkClient:
 
     async def _fetch_page(self, category: str, page: int) -> dict:
         payload = {"c": str(category), "page": str(page)}
-        async with self._session.post(PROJECTS_URL, data=payload, headers=HEADERS) as resp:
-            resp.raise_for_status()
+        for attempt in range(1, _MAX_RETRIES + 1):
             try:
-                data = await resp.json(content_type=None)
-            except Exception as exc:  # не JSON => скорее всего отдали HTML
+                async with self._session.post(
+                    PROJECTS_URL, data=payload, headers=HEADERS, timeout=_REQUEST_TIMEOUT
+                ) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json(content_type=None)
+            except aiohttp.ClientResponseError as exc:
+                # 502/503/504/429 и т.п. — временные, повторяем
+                if exc.status in _TRANSIENT_STATUSES and attempt < _MAX_RETRIES:
+                    await asyncio.sleep(_RETRY_BACKOFF * attempt)
+                    continue
+                raise
+            except (aiohttp.ClientConnectionError, asyncio.TimeoutError):
+                # обрыв соединения / таймаут — повторяем
+                if attempt < _MAX_RETRIES:
+                    await asyncio.sleep(_RETRY_BACKOFF * attempt)
+                    continue
+                raise
+            except Exception as exc:  # не JSON => скорее всего отдали HTML (антибот)
                 raise KworkAuthError(
                     f"Ответ не JSON (категория {category}, стр. {page})"
                 ) from exc
 
-        if not data.get("success"):
-            raise KworkAuthError(f"success != true (категория {category})")
-        try:
-            return data["data"]["pagination"]
-        except (KeyError, TypeError) as exc:
-            raise KworkAuthError(f"Неожиданная структура ответа (категория {category})") from exc
+            if not data.get("success"):
+                raise KworkAuthError(f"success != true (категория {category})")
+            try:
+                return data["data"]["pagination"]
+            except (KeyError, TypeError) as exc:
+                raise KworkAuthError(
+                    f"Неожиданная структура ответа (категория {category})"
+                ) from exc
+        raise KworkAuthError(f"Не удалось получить страницу после повторов (категория {category})")
 
     async def fetch_projects(self, category: str, max_pages: int = 0) -> list[Project]:
         """Возвращает проекты категории. max_pages=0 — все страницы."""
