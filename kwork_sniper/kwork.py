@@ -65,6 +65,110 @@ def _to_int(value: object) -> int:
         return 0
 
 
+# Уровни покупателя (payer_level) → короткая метка статуса (прокси «объём покупок»).
+_PAYER_TIERS = {
+    2: "Освоившийся",
+    3: "Опытный",
+    4: "Мощный",
+    5: "Очень мощный",
+    6: "Мощнейший",
+    7: "Топовый",
+}
+_YEARS_RE = re.compile(r"(\d+)\s*лет", re.IGNORECASE)
+
+
+def _buyer_from_badges(badges: list) -> tuple[str, int, bool]:
+    """Из списка бейджей выводит (короткий статус-покупателя, лет на Kwork, супер?)."""
+    level = 0
+    is_super = False
+    years = 0
+    has_mega = False
+    has_three = False
+    for entry in badges or []:
+        badge = entry.get("badge") or {}
+        lvl = badge.get("payer_level")
+        if isinstance(lvl, int) and lvl > level:
+            level = lvl
+        if badge.get("is_super_payer"):
+            is_super = True
+        bid = badge.get("id")
+        if bid == 7:
+            has_mega = True
+        elif bid == 18:
+            is_super = True
+        elif bid == 25:
+            has_three = True
+        title = badge.get("title") or ""
+        if "Kwork" in title:
+            match = _YEARS_RE.search(title)
+            if match:
+                years = max(years, int(match.group(1)))
+
+    if level:
+        tier = _PAYER_TIERS.get(level, f"уровень {level}")
+    elif has_mega:
+        tier = "Мега"
+    elif has_three:
+        tier = "3+ покупки"
+    elif is_super:
+        tier = "Супер"
+    else:
+        tier = "Новичок"
+    return tier, years, is_super
+
+
+# Уровни покупателя (payer_level) → короткая метка статуса (прокси «объём покупок»).
+_PAYER_TIERS = {
+    2: "Освоившийся",
+    3: "Опытный",
+    4: "Мощный",
+    5: "Очень мощный",
+    6: "Мощнейший",
+    7: "Топовый",
+}
+_YEARS_RE = re.compile(r"(\d+)\s*лет", re.IGNORECASE)
+
+
+def _buyer_from_badges(badges: list) -> tuple[str, int, bool]:
+    """Из списка бейджей выводит (статус-покупателя, лет на Kwork, супер?)."""
+    level = 0
+    is_super = False
+    years = 0
+    has_mega = False
+    has_three = False
+    for entry in badges or []:
+        badge = entry.get("badge") or {}
+        lvl = badge.get("payer_level")
+        if isinstance(lvl, int) and lvl > level:
+            level = lvl
+        if badge.get("is_super_payer"):
+            is_super = True
+        bid = badge.get("id")
+        if bid == 7:
+            has_mega = True
+        elif bid == 18:
+            is_super = True
+        elif bid == 25:
+            has_three = True
+        title = badge.get("title") or ""
+        if "Kwork" in title:
+            match = _YEARS_RE.search(title)
+            if match:
+                years = max(years, int(match.group(1)))
+
+    if level:
+        tier = _PAYER_TIERS.get(level, f"уровень {level}")
+    elif has_mega:
+        tier = "Мега"
+    elif has_three:
+        tier = "3+ покупки"
+    elif is_super:
+        tier = "Супер"
+    else:
+        tier = "Новичок"
+    return tier, years, is_super
+
+
 @dataclass(frozen=True)
 class Project:
     """Нормализованный проект Kwork."""
@@ -83,6 +187,9 @@ class Project:
     customer_url: str
     customer_hired_percent: int  # % найма заказчика (доля проектов, где он нанял)
     customer_projects: int       # сколько проектов заказчик опубликовал всего
+    customer_tier: str           # статус покупателя (Новичок … Топовый)
+    customer_years: int          # лет на Kwork (0 = неизвестно)
+    customer_is_super: bool      # супер-покупатель
 
 
 class KworkAuthError(RuntimeError):
@@ -149,6 +256,7 @@ class KworkClient:
         pid = _to_int(item.get("id"))
         user = item.get("user") or {}
         udata = user.get("data") or {}
+        tier, years, is_super = _buyer_from_badges(user.get("badges") or [])
         return Project(
             id=pid,
             name=html.unescape(str(item.get("name", "")).strip()),
@@ -164,4 +272,22 @@ class KworkClient:
             customer_url=str(item.get("wantUserGetProfileUrl", "")),
             customer_hired_percent=_to_int(udata.get("wants_hired_percent")),
             customer_projects=_to_int(udata.get("wants_count")),
+            customer_tier=tier,
+            customer_years=years,
+            customer_is_super=is_super,
         )
+
+    async def fetch_one(self, project_id: int, category: str) -> Project | None:
+        """Ищет один проект по id в ленте его категории. None = пропал
+        (удалён/закрыт). Свежие views/offers/статус заказчика — оттуда же."""
+        first = await self._fetch_page(category, 1)
+        last_page = _to_int(first.get("last_page")) or 1
+        for item in first.get("data", []):
+            if _to_int(item.get("id")) == project_id:
+                return self._parse(item, category)
+        for page in range(2, last_page + 1):
+            pagination = await self._fetch_page(category, page)
+            for item in pagination.get("data", []):
+                if _to_int(item.get("id")) == project_id:
+                    return self._parse(item, category)
+        return None
