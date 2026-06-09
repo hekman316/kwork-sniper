@@ -22,6 +22,16 @@ def _int_env(name: str, default: int) -> int:
         raise SystemExit(f"Переменная {name} должна быть числом, а не {raw!r}.")
 
 
+def _float_env(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip().replace(",", ".")
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        raise SystemExit(f"Переменная {name} должна быть числом, а не {raw!r}.")
+
+
 @dataclass(frozen=True)
 class Settings:
     telegram_bot_token: str
@@ -36,6 +46,7 @@ class Settings:
     min_customer_projects: int
     poll_interval: int
     max_pages: int
+    heartbeat_hours: float
     db_path: str
     log_level: str
 
@@ -80,6 +91,7 @@ def load_settings() -> Settings:
         min_customer_projects=_int_env("MIN_CUSTOMER_PROJECTS", 0),
         poll_interval=max(_int_env("POLL_INTERVAL", 75), 15),
         max_pages=_int_env("MAX_PAGES", 0),
+        heartbeat_hours=_float_env("HEARTBEAT_HOURS", 0),
         db_path=os.getenv("DB_PATH", "seen.db").strip() or "seen.db",
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper() or "INFO",
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 import aiohttp
 
@@ -77,14 +78,19 @@ async def run() -> None:
     categories = ", ".join(settings.categories)
 
     log.info(
-        "Запуск. Категории: %s. Интервал: %s сек. Telegram: %s.",
+        "Запуск. Категории: %s. Интервал: %s сек. Telegram: %s. Пульс: %s.",
         categories,
         settings.poll_interval,
         "через прокси" if settings.telegram_proxy else "напрямую",
+        f"каждые {settings.heartbeat_hours} ч" if settings.heartbeat_hours else "выкл",
     )
 
     first_run = storage.count() == 0
     healthy = True
+
+    heartbeat_interval = settings.heartbeat_hours * 3600  # 0 = выключен
+    last_heartbeat = time.monotonic()
+    sent_since_heartbeat = 0
 
     async with aiohttp.ClientSession() as session:
         client = KworkClient(session)
@@ -100,6 +106,19 @@ async def run() -> None:
                 )
 
             while True:
+                # Пульс: раз в heartbeat_interval подтверждаем, что бот жив.
+                if heartbeat_interval and time.monotonic() - last_heartbeat >= heartbeat_interval:
+                    last_heartbeat = time.monotonic()
+                    log.info("Пульс: в базе %s, новых за период %s", storage.count(), sent_since_heartbeat)
+                    try:
+                        await notifier.send_text(
+                            f"💓 Бот жив. В базе: {storage.count()} проектов. "
+                            f"Новых отправлено за период: {sent_since_heartbeat}."
+                        )
+                    except Exception:
+                        pass
+                    sent_since_heartbeat = 0
+
                 try:
                     new_projects = await _collect_new(client, storage, settings)
                     matched = [p for p in new_projects if passes_filter(p, settings)]
@@ -109,6 +128,7 @@ async def run() -> None:
                         except Exception as exc:
                             log.error("Не отправлен проект %s: %s", project.id, exc)
                         await asyncio.sleep(_SEND_PAUSE)
+                    sent_since_heartbeat += len(matched)
 
                     if matched:
                         log.info("Отправлено новых проектов: %s", len(matched))
